@@ -44,6 +44,58 @@ The system works in the following way:
 
 TODO AI
 
+------------------------------ GEMINI OUTPUT START -----------------------------
+
+The infrastructure is designed to be modular and executable on a single host.
+
+#### 1. Version Control System (VCS)
+Acts as the source of truth and the primary trigger for the automation pipeline.
+*   **GitHub**
+    *   **Pros**: Industry standard, seamless GitHub Actions integration, extensive documentation.
+    *   **Cons**: Some advanced features are paywalled; relies on external cloud availability.
+*   **GitLab (Self-hosted)**
+    *   **Pros**: Complete control over data; integrated CI/CD and Container Registry; ideal for single-host setups.
+    *   **Cons**: Resource-intensive to run alongside the application on home-grade hardware.
+
+#### 2. CI/CD Orchestrator
+The engine that interprets the pipeline definition and manages the lifecycle of each stage.
+*   **GitHub Actions**
+    *   **Pros**: No infrastructure to maintain; massive marketplace of pre-built actions.
+    *   **Cons**: Requires a local runner for "on-premises" deployment to the host.
+*   **GitLab CI**
+    *   **Pros**: Tightly coupled with the VCS; simple runner registration; native support for Docker-in-Docker.
+    *   **Cons**: Configuration can become complex for multi-project pipelines.
+
+#### 3. Container Engine & Orchestration
+Provides the environment for both the application under test and the transient testing tools.
+*   **Docker Compose**
+    *   **Pros**: Simple, YAML-based configuration; perfect for orchestrating a few service containers on one host.
+    *   **Cons**: Lacks advanced features like auto-healing or secret management found in Kubernetes.
+*   **Podman Compose**
+    *   **Pros**: Daemonless and rootless by default, offering better security.
+    *   **Cons**: Occasional compatibility edge cases with standard Docker Compose files.
+
+#### 4. Artifact & Log Management
+Centralized storage for build outputs and execution traces.
+*   **Local Registry + Filesystem Mounts**
+    *   **Pros**: Minimal resource footprint; extremely fast local transfers.
+    *   **Cons**: Lacks a GUI for browsing artifacts; requires custom scripts for log rotation.
+*   **Harbor (Self-hosted)**
+    *   **Pros**: Enterprise-grade security and image scanning; excellent UI.
+    *   **Cons**: Likely too heavy for the "toy setup" constraints.
+
+#### 5. Test Execution Environment
+A dedicated containerized environment where the test suite is executed.
+*   **Pytest in Docker**
+    *   **Pros**: Highly extensible via plugins; uses the same language as the backend (Python).
+    *   **Cons**: Requires careful management of container networks to reach the application.
+*   **Robot Framework**
+    *   **Pros**: High-level, keyword-driven syntax; generates excellent built-in reports.
+    *   **Cons**: More verbose than pure Python for complex data manipulation.
+
+------------------------------ GEMINI OUTPUT STOP ------------------------------
+
+
 ------------------- CURSOR OUTPUT START -------------------
 
 The system is composed of the following elements.
@@ -143,6 +195,24 @@ For the first iteration, the application does the following
 
 TODO AI
 
+------------------------------ GEMINI OUTPUT START -----------------------------
+
+The mock application is built using a lightweight, modern stack designed for rapid deployment and testing:
+
+*   **Frontend (React / TypeScript)**
+    *   **Reason**: Provides a robust ecosystem for component testing and E2E automation; allows for immediate user feedback on post-length and character constraints.
+*   **Backend API (FastAPI / Python)**
+    *   **Reason**: Extremely fast to develop and performant; handles the 10-second duplicate check logic efficiently with asynchronous tasks; automatically generates interactive API documentation.
+*   **Database (SQLite)**
+    *   **Reason**: A zero-config, file-based database that fits perfectly within a single-host environment, avoiding the resource overhead of a dedicated database server.
+*   **Authentication (JWT - JSON Web Tokens)**
+    *   **Reason**: Enables stateless communication between the frontend and backend, simplifying the testing of protected endpoints without managing server-side session state.
+*   **Service Orchestration (Docker Compose)**
+    *   **Reason**: Ensures the entire application stack (frontend, backend, and database) can be launched reliably with a single command, providing a consistent target for automated tests.
+
+------------------------------ GEMINI OUTPUT STOP ------------------------------
+
+
 ------------------- CURSOR OUTPUT START -------------------
 
 #### Frontend
@@ -181,6 +251,48 @@ Mechanism for verifying user identity. Could be a separate service or a module w
 ### Test suite
 
 TODO AI
+
+------------------------------ GEMINI OUTPUT START -----------------------------
+
+The test suite is structured to provide high confidence through multiple layers of verification:
+
+#### End-to-End (E2E) Tests
+*Focus: User-centric workflows using the full stack via Playwright or Selenium.*
+*   **Public Access**: Verify that unauthenticated users can view the global timeline.
+    *   **Reason**: Confirms the app is accessible and the basic read-flow is functional.
+*   **Authenticated Posting**: Verify a user can log in, create a valid post, and see it appear on the timeline.
+    *   **Reason**: Validates the core value-proposition and the integration of Auth, API, and Database.
+*   **Negative: Unauthorized Posting**: Attempt to submit a post after a session has expired or after logging out.
+    *   **Reason**: Ensures that security boundaries are enforced at the UI layer and that the user is redirected or prompted.
+*   **Corner: Boundary Content**: Submit a post that is exactly 256 characters long and another that contains exactly one non-whitespace character.
+    *   **Reason**: Confirms that the system correctly handles the limits of the defined business rules.
+*   **Corner: Concurrency/Deduplication**: Rapidly click the "Post" button multiple times (double-click) to trigger simultaneous requests.
+    *   **Reason**: Tests the robustness of the frontend and backend against race conditions or accidental double-submissions.
+
+#### Integration Tests
+*Focus: API contracts and component interactions.*
+*   **API Security**: Ensure the /post endpoint returns a 401 Unauthorized without a valid JWT.
+    *   **Reason**: Directly tests the Auth Provider's protection of the Backend API.
+*   **Negative: Oversized Payload**: Send a 257+ character post directly to the API, bypassing frontend validation.
+    *   **Reason**: Validates that the backend acts as the authoritative source of truth for business rules.
+*   **Negative: Invalid Auth Token**: Submit a post with a malformed or tampered-with JWT.
+    *   **Reason**: Verifies the integrity of the token validation logic in the Auth module.
+*   **Corner: Precise Duplicate Window**: Submit identical posts exactly 10 seconds apart and 11 seconds apart.
+    *   **Reason**: Verifies the exactness of the duplicate detection window implementation.
+
+#### Unit Tests
+*Focus: Isolated business logic and utility functions.*
+*   **Content Validator**: Test the 256-character boundary and ASCII-only constraints in isolation.
+    *   **Reason**: Fast, low-overhead verification of the core data-integrity rules.
+*   **Negative: Empty/Whitespace Input**: Pass null, empty strings, and strings with only tabs or newlines to the validator.
+    *   **Reason**: Ensures the "minimum content" rule is robust against diverse whitespace characters and edge inputs.
+*   **Corner: Special ASCII Characters**: Test strings containing control characters, backslashes, and quotes.
+    *   **Reason**: Confirms that the sanitization and storage logic handles valid but potentially problematic ASCII symbols safely.
+*   **Timestamp Comparator**: Verify the logic that calculates the 10-second window for duplicate detection.
+    *   **Reason**: Isolates the time-calculation logic from the API/Database layers.
+
+------------------------------ GEMINI OUTPUT STOP ------------------------------
+
 
 ------------------- CURSOR OUTPUT START -------------------
 
