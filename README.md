@@ -45,6 +45,18 @@ The system works in the following way:
 The system is composed of the following elements, designed for modular
 deployment on a single host.
 
+| Component | Selected | Rationale |
+|---|---|---|
+| VCS | GitHub | Cloud-hosted, zero self-hosting overhead |
+| CI/CD Runner | GitHub Actions | Native to GitHub, zero additional infrastructure |
+| Linter | ruff | Fastest, single binary, replaces multiple tools |
+| Notification Service | Custom REST API | Stub by design; full control over schema |
+| Build System | Docker | Already required for deployment, reproducible builds |
+| Artifact Tracker | Local Docker Registry | Official image (registry:2), lightweight, self-contained |
+| Log Tracker | Custom REST API | Custom container with SQLite backend; see spec below |
+| Deployment Target | Docker Compose | Standard, simple YAML, official Docker ecosystem |
+| Test Runner | pytest | Lightest, pip-installable, largest plugin ecosystem |
+
 #### 1. Version Control System (VCS)
 
 Online version control system. Hosts the repository, manages MRs, and
@@ -115,14 +127,66 @@ Stores build outputs such as container images or packages.
 
 #### 7. Log Tracker
 
-Centralized log storage for build and test outputs.
+Custom REST API running in its own Docker container. Accepts and retrieves
+log data from pipeline stages and test runs. Designed to be swappable: the
+container can be replaced with any implementation that exposes the same API
+contract, backed by any storage engine (ELK, Loki, cloud service, etc.).
 
-* Native pipeline logs - simplest option, no extra infrastructure, limited
-  search capability
-* Loki + Grafana - lightweight log aggregation, self-hostable, powerful query
-  language (LogQL)
-* ELK stack - powerful search and visualization, but heavy for a single-host
-  setup
+**Endpoints**
+
+* `POST /logs` - accepts JSON log data
+* `GET /logs` - retrieves log lines filtered by time range
+* `GET /info` - returns capabilities as JSON: supported input formats,
+  storage backend identifier, max line size, image checksum, uptime,
+  retention policy
+* `GET /version` - returns the semver version of the service as JSON
+
+**Input format**
+
+Accepts JSON in two forms:
+
+* A list of strings (stored as simple log lines)
+* A list of objects containing metadata and log lines as strings
+
+**Storage**
+
+* Uses a dedicated SQLite file, separate from the application database
+* Metadata submitted with structured input is stored but not exposed on
+  retrieval in v1; future versions may surface metadata via a flag or
+  separate endpoint
+
+**Retrieval**
+
+* Time range only: returns log lines within a given start/end window
+* For log lines where a timestamp cannot be parsed from the content or
+  metadata, the insertion time is used
+* Returns only the log line text; metadata is not included in v1 responses
+
+**Limits and retention**
+
+* Maximum 16KB per log line; entries exceeding this are rejected
+* Total storage size cap with FIFO eviction (oldest entries removed first)
+
+**Concurrency**
+
+SQLite serializes writes. Concurrent log submissions from multiple pipeline
+stages will queue. This is acceptable for a toy setup. In a production
+system, a message queue (e.g. RabbitMQ, Redis Streams) would buffer writes
+and decouple producers from the storage backend.
+
+**Future capabilities (not implemented in v1)**
+
+* Regex search across log lines, likely via reverse indexing or delegated
+  to the storage backend (e.g. Elasticsearch full-text search)
+* Metadata retrieval on read
+* Advanced query filters beyond time range
+
+**Alternatives considered**
+
+* Native pipeline logs - zero infrastructure, but limited search and no API
+* Loki + Grafana - lightweight aggregation with good query support, but adds
+  two extra containers
+* ELK stack - powerful, but too heavy for a single-host toy setup
 
 #### 8. Deployment Target
 
@@ -176,6 +240,14 @@ For the first iteration, the application does the following
 ### Components
 
 The mock twitter clone is composed of the following components.
+
+| Component | Selected | Rationale |
+|---|---|---|
+| Frontend | React/TypeScript | Component-based, rich testing ecosystem, type safety |
+| Backend API | FastAPI/Python | Async support, automatic OpenAPI docs |
+| Database | SQLite | Zero-config, file-based, fits single-host constraint |
+| Authentication | JWT | Stateless, no extra infrastructure |
+| Service Orchestration | Docker Compose | Simple YAML config, single-command startup |
 
 #### 1. Frontend
 
@@ -234,6 +306,12 @@ unit.
 
 The test suite validates the application across three levels: end-to-end
 user workflows, component integration, and isolated unit logic.
+
+| Level | Selected | Rationale |
+|---|---|---|
+| E2E | Playwright | Official Docker image, modern, lighter than Selenium grid |
+| Integration | pytest + HTTPX | Async-capable, direct API contract testing |
+| Unit | pytest | Fast, granular reports, extensive plugin ecosystem |
 
 #### Suggested tooling
 
