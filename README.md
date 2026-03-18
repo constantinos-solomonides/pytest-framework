@@ -95,7 +95,7 @@ back to the MR.
 
 Lightweight service exposing a dummy API that accepts structured messages from
 pipeline stages and forwards them to configured platforms. Initially a stub;
-actual platform integrations are an action point.
+actual platform integration are an action point.
 
 * Custom REST API - simple to implement, full control over message schema and
   routing
@@ -294,7 +294,7 @@ module within the backend.
 
 #### 5. Service Orchestration
 
-Manages the lifecycle of all application containers as a single deployable
+Manages the life-cycle of all application containers as a single deployable
 unit.
 
 * Launches frontend, backend, and database together
@@ -364,7 +364,7 @@ Validate complete user workflows through the full stack.
 * Same user submits identical content within 10 seconds - confirms the
   system rejects the second submission as a duplicate
 * Rapid duplicate submission of the same post (e.g. double-click) -
-  confirms the system deduplicates within the short timespan window
+  confirms the system de-duplicates within the short timespan window
 
 #### Integration tests
 
