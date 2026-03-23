@@ -1,12 +1,11 @@
 # Implementation Guide
 
-**Version**: 0.1.0
+**Version**: 0.2.0
 **Last updated**: 2026-03-17
 **Design reference**: [README.md](README.md)
 
 This document describes how to set up, build, deploy, and test the
-pytest-framework-example project. It is the operational companion to the
-README, which contains architecture rationale and design decisions.
+pytest-framework project. It is the operational companion to the README.
 
 ---
 
@@ -14,339 +13,266 @@ README, which contains architecture rationale and design decisions.
 
 | Version | Date | Description |
 |---|---|---|
-| 0.1.0 | 2026-03-17 | Initial implementation guide; selected stack documented |
+| 0.2.0 | 2026-03-17 | Restructured: framework/sut/tests separation; Makefile; env generator |
+| 0.1.0 | 2026-03-17 | Initial implementation guide |
+
+---
+
+## Architecture boundary
+
+The project separates three concerns:
+
+| Directory | Role | Swappable |
+|---|---|---|
+| `framework/` | Testing infrastructure: log tracker, notification service, registry, CI/CD workflows | No (core) |
+| `sut/` | System under test: the mock twitter clone | Yes (replace with any containerized app) |
+| `tests/` | Test suite: e2e, integration, unit tests against the SUT | Adapts to the SUT |
+
+The top-level `docker-compose.yml` includes both
+`framework/docker-compose.framework.yml` and
+`sut/twitter-clone/docker-compose.sut.yml`. To swap the SUT, replace the
+include path and adjust test fixtures in `tests/conftest.py`.
 
 ---
 
 ## Prerequisites
 
-The following must be installed on the host machine.
-
 | Tool | Minimum version | Purpose |
 |---|---|---|
-| Docker Engine | 24.x | Container runtime for all services |
+| Docker Engine | 24.x | Container runtime |
 | Docker Compose | 2.20+ | Multi-container orchestration |
-| Node.js | 20 LTS | Frontend build toolchain |
-| Python | 3.11+ | Backend API, test runner, linter |
+| Python | 3.11+ | Backend, tests, linter |
+| Node.js | 20 LTS | Frontend build (future) |
 | Git | 2.x | Version control |
+| Make | any | Build/deploy/test commands |
 
-Optional but recommended:
+Optional:
 
-* `ruff` (installable via `pip install ruff`) for local linting before push
-* `playwright` Python package for local E2E test execution
+* `ruff` (`pip install ruff`) for local linting
+* `playwright` (`pip install playwright && playwright install`) for local
+  E2E tests
 
 ---
 
-## Project structure
+## Bootstrap
 
 ```
-pytest-framework/
-|-- README.md                  # Architecture and design decisions
-|-- IMPLEMENTATION.md          # This file
-|-- docker-compose.yml         # Orchestrates all services
-|-- .github/
-|   |-- workflows/
-|       |-- lint.yml           # Linting pipeline (ruff)
-|       |-- ci.yml             # Build, deploy, test pipeline
-|-- frontend/
-|   |-- Dockerfile
-|   |-- package.json
-|   |-- tsconfig.json
-|   |-- src/
-|-- backend/
-|   |-- Dockerfile
-|   |-- requirements.txt
-|   |-- app/
-|       |-- main.py            # FastAPI entry point
-|       |-- models.py
-|       |-- auth.py
-|       |-- validators.py
-|-- log-tracker/
-|   |-- Dockerfile
-|   |-- requirements.txt
-|   |-- app/
-|       |-- main.py            # Log tracker API entry point
-|       |-- db.py              # SQLite operations
-|-- notification-service/
-|   |-- Dockerfile
-|   |-- requirements.txt
-|   |-- app/
-|       |-- main.py            # Notification stub entry point
-|-- tests/
-|   |-- conftest.py            # Shared pytest fixtures
-|   |-- e2e/                   # Playwright E2E tests
-|   |-- integration/           # API-level tests (HTTPX)
-|   |-- unit/                  # Isolated logic tests
-|-- data/
-|   |-- app.db                 # Application SQLite database (gitignored)
-|   |-- logs.db                # Log tracker SQLite database (gitignored)
+make bootstrap
 ```
+
+This runs `scripts/generate_env.sh` which:
+
+1. Generates a random 32-byte hex JWT secret
+2. Writes a `.env` file with all required variables and defaults
+3. Creates the `data/` directory
+
+The `.env` file is gitignored. Re-running with `--force` overwrites
+without prompting.
+
+### Environment variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `APP_DB_PATH` | `./data/app.db` | SUT application database |
+| `LOG_DB_PATH` | `./data/logs.db` | Log tracker database |
+| `JWT_SECRET` | (generated) | Secret key for JWT signing |
+| `JWT_EXPIRY_SECONDS` | `3600` | Token expiry duration |
+| `LOG_MAX_LINE_BYTES` | `16384` | Max log line size (16KB) |
+| `LOG_STORAGE_CAP_MB` | `256` | Log storage cap before FIFO eviction |
+| `REGISTRY_PORT` | `5001` | Local Docker Registry host port |
+
+The two SQLite files are deliberately separate. `app.db` is owned by the
+SUT backend. `logs.db` is owned by the framework log tracker. This
+isolation prevents a runaway log table from affecting the application.
 
 ---
 
 ## Container inventory
 
-All services run as Docker containers orchestrated by Docker Compose.
-
-| Container | Image | Port | Purpose |
+| Container | Image | Port | Layer |
 |---|---|---|---|
-| frontend | Built from `frontend/Dockerfile` | 3000 | React/TypeScript SPA |
-| backend | Built from `backend/Dockerfile` | 8000 | FastAPI REST API |
-| log-tracker | Built from `log-tracker/Dockerfile` | 8001 | Custom log API |
-| notification | Built from `notification-service/Dockerfile` | 8002 | Notification stub API |
-| registry | `registry:2` | 5000 | Local Docker Registry |
+| frontend | `sut/twitter-clone/frontend/Dockerfile` | 3000 | SUT |
+| backend | `sut/twitter-clone/backend/Dockerfile` | 8000 | SUT |
+| log-tracker | `framework/log-tracker/Dockerfile` | 8001 | Framework |
+| notification | `framework/notification-service/Dockerfile` | 8002 | Framework |
+| registry | `registry:2` | 5001 | Framework |
+
+The "Layer" column makes the boundary explicit. SUT containers can be
+replaced without touching framework containers.
 
 ---
 
-## Configuration
-
-### Environment variables
-
-Environment variables are managed via a `.env` file at the project root.
-This file is gitignored.
-
-| Variable | Default | Description |
-|---|---|---|
-| `APP_DB_PATH` | `./data/app.db` | Path to application SQLite file |
-| `LOG_DB_PATH` | `./data/logs.db` | Path to log tracker SQLite file |
-| `JWT_SECRET` | (none, required) | Secret key for JWT signing |
-| `JWT_EXPIRY_SECONDS` | `3600` | Token expiry duration |
-| `LOG_MAX_LINE_BYTES` | `16384` | Maximum log line size (16KB) |
-| `LOG_STORAGE_CAP_MB` | `256` | Total log storage cap before FIFO eviction |
-| `REGISTRY_PORT` | `5000` | Local Docker Registry port |
-
-### Docker Compose
-
-The `docker-compose.yml` file defines all containers, networks, and volume
-mounts. The application database and log tracker database are stored in the
-`data/` directory, mounted as volumes into their respective containers.
-
-The two SQLite files are deliberately separate:
-
-* `app.db` - owned by the backend container
-* `logs.db` - owned by the log-tracker container
-
-This isolation ensures a runaway log table cannot affect the application
-database, and simplifies future backend swaps for the log tracker.
-
----
-
-## Build
-
-### Local build
+## Build and deploy
 
 ```
-docker compose build
+make build       # Build all images
+make up          # Start all services (runs bootstrap if needed)
+make down        # Stop and remove containers
+make restart     # Rebuild and restart everything
+make status      # Show container health
+make logs        # Tail container logs
+make clean       # Stop containers, remove database files
 ```
 
-This builds all custom images (frontend, backend, log-tracker, notification).
-The `registry:2` image is pulled from Docker Hub.
+### Health endpoints
 
-### CI build (GitHub Actions)
+Each service exposes a health or readiness endpoint used by Docker
+Compose healthchecks and by the CI pipeline before running tests:
 
-The `ci.yml` workflow:
-
-1. Checks out the repository
-2. Builds all images via `docker compose build`
-3. Tags and pushes images to the local Docker Registry
-4. Proceeds to deploy and test stages
-
----
-
-## Deploy
-
-### Local deployment
-
-```
-docker compose up -d
-```
-
-Starts all containers in detached mode. The frontend is accessible at
-`http://localhost:3000`, the backend API at `http://localhost:8000`.
-
-### Readiness verification
-
-The deployment process must verify that all services are healthy before
-tests proceed. Each service exposes a health or readiness endpoint:
-
-* Backend: `GET /health`
-* Log tracker: `GET /version`
-* Notification service: `GET /health`
-* Frontend: HTTP 200 on the root URL
-
-The `docker-compose.yml` should define `healthcheck` directives for each
-service. The test stage waits for all health checks to pass before
-execution.
+| Service | Endpoint |
+|---|---|
+| Backend | `GET /health` |
+| Frontend | HTTP 200 on root |
+| Log tracker | `GET /version` |
+| Notification | `GET /health` |
+| Registry | `GET /v2/` |
 
 ---
 
 ## Linting
 
-ruff is invoked as the first pipeline stage and can also be run locally.
-
 ```
-ruff check .
+make lint
 ```
 
-The `lint.yml` GitHub Actions workflow runs on every push and reports
-results back to the pull request.
-
-Configuration lives in `pyproject.toml` under the `[tool.ruff]` section.
+Runs `ruff check .` across the entire project. Configuration lives in
+`pyproject.toml` (to be created when ruff rules are finalized).
 
 ---
 
 ## Running tests
 
-### All tests
-
 ```
-pytest tests/
-```
-
-### By level
-
-```
-pytest tests/unit/
-pytest tests/integration/
-pytest tests/e2e/
+make test          # All levels
+make test-unit     # Unit tests only
+make test-int      # Integration tests only
+make test-e2e      # E2E tests only
 ```
 
-### E2E tests with Playwright
+### E2E tests
 
-E2E tests require a running deployment. They can be executed inside the
-Playwright Docker image or locally with Playwright installed:
-
-```
-pip install playwright pytest-playwright
-playwright install
-pytest tests/e2e/
-```
-
-In CI, the E2E tests run against the deployed containers using the
-official Playwright Docker image (`mcr.microsoft.com/playwright/python`).
+Require a running deployment. Use Playwright to drive the frontend.
+In CI, run inside the official Playwright Docker image
+(`mcr.microsoft.com/playwright/python`).
 
 ### Integration tests
 
-Integration tests hit the backend API directly using HTTPX. They require
-the backend and database to be running but do not require the frontend.
-
-```
-pytest tests/integration/
-```
+Hit the backend API directly using HTTPX. Require backend and database
+to be running. Do not require the frontend.
 
 ### Unit tests
 
-Unit tests run in isolation with no external dependencies.
+Run in isolation with no external dependencies.
 
-```
-pytest tests/unit/
-```
+### Test configuration
 
----
+Base URLs are set via environment variables in `tests/conftest.py`:
 
-## Log tracker operations
-
-### Submitting logs
-
-```
-POST http://localhost:8001/logs
-Content-Type: application/json
-
-["line one", "line two", "line three"]
-```
-
-Or with metadata (stored but not returned in v1):
-
-```
-POST http://localhost:8001/logs
-Content-Type: application/json
-
-[
-  {"metadata": {"source": "ci", "stage": "build"}, "line": "build started"},
-  {"metadata": {"source": "ci", "stage": "build"}, "line": "build complete"}
-]
-```
-
-### Retrieving logs
-
-```
-GET http://localhost:8001/logs?start=2026-03-17T00:00:00Z&end=2026-03-17T23:59:59Z
-```
-
-Returns a JSON array of log line strings.
-
-### Service info
-
-```
-GET http://localhost:8001/info
-```
-
-Returns JSON with: supported input formats, storage backend identifier,
-max line size, installed image checksum, uptime, retention policy.
-
-```
-GET http://localhost:8001/version
-```
-
-Returns JSON with the semver version of the service.
+| Variable | Default | Used by |
+|---|---|---|
+| `BACKEND_URL` | `http://localhost:8000` | Integration, E2E |
+| `FRONTEND_URL` | `http://localhost:3000` | E2E |
+| `LOG_TRACKER_URL` | `http://localhost:8001` | Integration |
 
 ---
 
-## GitHub Actions workflows
+## CI/CD workflows
+
+Workflow definitions go in `framework/workflows/` and are symlinked or
+copied to `.github/workflows/` when GitHub is configured.
 
 ### lint.yml
 
-* **Trigger**: Every push to any branch
-* **Steps**: Checkout, install ruff, run `ruff check .`
-* **Output**: Annotations on the pull request
+* **Trigger**: Every push
+* **Steps**: Checkout, install ruff, `ruff check .`
 
 ### ci.yml
 
-* **Trigger**: Push to a non-draft pull request branch
+* **Trigger**: Push to non-draft pull request branch
 * **Steps**:
     1. Checkout
-    2. Build all images (`docker compose build`)
-    3. Push images to local registry
-    4. Deploy (`docker compose up -d`)
+    2. `make bootstrap`
+    3. `make build`
+    4. `make up`
     5. Wait for health checks
-    6. Run unit tests
-    7. Run integration tests
-    8. Run E2E tests (Playwright container)
-    9. Upload test results and logs to log tracker
-    10. Tear down (`docker compose down`)
+    6. `make test-unit`
+    7. `make test-int`
+    8. `make test-e2e`
+    9. Upload results to log tracker
+    10. `make down`
+
+---
+
+## Log Tracker specification
+
+### Endpoints
+
+* `POST /logs` -- accepts JSON log data
+* `GET /logs` -- retrieves log lines filtered by time range
+* `GET /info` -- capabilities, limits, image checksum, uptime
+* `GET /version` -- semver version as JSON
+
+### Input format
+
+Accepts JSON in two forms:
+
+* List of strings (stored as simple log lines)
+* List of objects with `metadata` (dict) and `line` (string) keys
+
+### Storage
+
+* Dedicated SQLite file (`logs.db`), separate from SUT database
+* Metadata is stored but not exposed on retrieval in v1
+
+### Retrieval
+
+* Time range only (start/end as ISO8601 query parameters)
+* Uses insertion time when log content has no parseable timestamp
+* Returns log line text only
+
+### Limits and retention
+
+* 16KB maximum per log line
+* Total storage cap with FIFO eviction (oldest removed first)
+
+### Concurrency
+
+SQLite serializes writes. Concurrent submissions queue. In production,
+a message queue (RabbitMQ, Redis Streams) would buffer writes.
+
+### Future capabilities (not in v1)
+
+* Regex search via reverse indexing or backend delegation
+* Metadata retrieval on read
+* Advanced query filters
 
 ---
 
 ## Known limitations
 
-* **SQLite write serialization**: Both the application database and the
-  log tracker serialize writes. Concurrent requests queue. This is
-  acceptable for the toy setup. In a production system, the application
-  would use PostgreSQL and the log tracker would buffer writes through a
-  message queue (e.g. RabbitMQ, Redis Streams).
+* **SQLite write serialization**: Both databases serialize writes.
+  Acceptable for toy setup. PostgreSQL + message queue for production.
 
-* **No log search**: The log tracker v1 supports time-range retrieval
-  only. Regex or full-text search is not implemented. In a production
-  setup, this would be handled by reverse indexing or delegated to the
-  storage backend (e.g. Elasticsearch).
+* **No log search**: Time-range only in v1. Reverse indexing or
+  Elasticsearch for production.
 
-* **No metadata on read**: Structured log metadata is stored but not
-  returned in v1. Future versions may expose it via a query parameter or
-  a dedicated endpoint.
+* **No metadata on read**: Stored but not returned. Future endpoint
+  or query parameter.
 
-* **No authentication on internal services**: The log tracker and
-  notification service do not require authentication. In a production
-  setup, service-to-service authentication (e.g. mutual TLS, API keys)
-  would be required.
+* **No internal service auth**: Log tracker and notification service
+  accept unauthenticated requests. Mutual TLS or API keys for
+  production.
 
-* **Single-host only**: The entire stack runs on one machine. Horizontal
-  scaling is not supported in this configuration.
+* **Single-host only**: No horizontal scaling in this configuration.
+
+* **Frontend is a placeholder**: Static HTML served by nginx. React
+  build pipeline not yet implemented.
 
 ---
 
 ## References
 
-* [README.md](README.md) - Architecture, design rationale, test plan
+* [README.md](README.md) -- Architecture, selected stack, quick start
 * [Docker Compose docs](https://docs.docker.com/compose/)
 * [FastAPI docs](https://fastapi.tiangolo.com/)
 * [Playwright for Python](https://playwright.dev/python/)

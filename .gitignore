@@ -1,1 +1,11 @@
 .*.swp
+.env
+data/*.db
+__pycache__/
+*.pyc
+.pytest_cache/
+node_modules/
+dist/
+build/
+*.egg-info/
+.venv/

@@ -1,0 +1,36 @@
+services:
+  log-tracker:
+    build:
+      context: ./log-tracker
+    ports:
+      - "8001:8001"
+    env_file:
+      - ../.env
+    volumes:
+      - ../data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/version"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  notification:
+    build:
+      context: ./notification-service
+    ports:
+      - "8002:8002"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  registry:
+    image: registry:2
+    ports:
+      - "${REGISTRY_PORT:-5001}:5000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/v2/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
