@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   frontend:
     build:
@@ -56,7 +54,7 @@ services:
   registry:
     image: registry:2
     ports:
-      - "${REGISTRY_PORT:-5000}:5000"
+      - "${REGISTRY_PORT:-5001}:5000"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/v2/"]
       interval: 10s
