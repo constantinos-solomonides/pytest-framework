@@ -13,20 +13,12 @@ BACKEND_URL = os.environ.get("BACKEND_URL", "http://localhost:8000")
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
 LOG_TRACKER_URL = os.environ.get("LOG_TRACKER_URL", "http://localhost:8001")
 
+from src.storage.sqlite_handler import SQLiteHandler
 
-@pytest.fixture
-def backend_url():
-    """Returns the base URL for the SUT backend API."""
-    return BACKEND_URL
+# TODO define one sqlite handler fixture for *each* database that will be used in testing
+@pytest.fixture(scope="class")
+def sqlitehandler():
+    sq = SQLiteHandler(store_connection_data = {})
+    yield sq
+    sq.close()
 
-
-@pytest.fixture
-def frontend_url():
-    """Returns the base URL for the SUT frontend."""
-    return FRONTEND_URL
-
-
-@pytest.fixture
-def log_tracker_url():
-    """Returns the base URL for the log tracker API."""
-    return LOG_TRACKER_URL
