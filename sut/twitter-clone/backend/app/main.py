@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Twitter clone backend API entry point.
 

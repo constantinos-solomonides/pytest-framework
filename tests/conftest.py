@@ -5,9 +5,9 @@ Provides base URLs, HTTP clients, and common test data
 used across e2e, integration, and unit tests.
 """
 
-import pytest
 import os
 
+import pytest
 
 BACKEND_URL = os.environ.get("BACKEND_URL", "http://localhost:8000")
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")

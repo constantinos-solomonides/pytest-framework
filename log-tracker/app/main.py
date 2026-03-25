@@ -1,19 +1,22 @@
-from fastapi import FastAPI, Query
-from typing import List, Union, Dict, Optional
+from fastapi import FastAPI
 
 app = FastAPI(title="Log Tracker Service")
+
 
 @app.get("/version")
 async def get_version():
     return {"version": "0.1.0"}
 
+
 @app.get("/logs")
-async def get_logs(start: Optional[str] = None, end: Optional[str] = None):
+async def get_logs(start: str | None = None, end: str | None = None):
     return []
 
+
 @app.post("/logs")
-async def post_logs(logs: List[Union[str, Dict]]):
+async def post_logs(logs: list[str | dict]):
     return {"count": len(logs)}
+
 
 @app.get("/info")
 async def get_info():
@@ -22,8 +25,9 @@ async def get_info():
         "storage_backend": "sqlite",
         "max_line_size": 16384,
         "uptime": "0s",
-        "retention_policy": "FIFO"
+        "retention_policy": "FIFO",
     }
+
 
 @app.get("/")
 async def root():

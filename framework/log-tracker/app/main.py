@@ -5,9 +5,9 @@ Exposes endpoints for submitting and retrieving log lines.
 Storage is backed by a dedicated SQLite file.
 """
 
-from fastapi import FastAPI, Query, HTTPException
-from typing import List, Union, Dict, Optional
 import time
+
+from fastapi import FastAPI, Query
 
 APP_VERSION = "0.1.0"
 _start_time = time.time()
@@ -36,7 +36,7 @@ async def get_info():
 
 
 @app.post("/logs", status_code=201)
-async def post_logs(logs: List[Union[str, Dict]]):
+async def post_logs(logs: list[str | dict]):
     """
     Accepts log data as JSON.
 
@@ -53,8 +53,8 @@ async def post_logs(logs: List[Union[str, Dict]]):
 
 @app.get("/logs")
 async def get_logs(
-    start: Optional[str] = Query(None, description="ISO8601 start time"),
-    end: Optional[str] = Query(None, description="ISO8601 end time"),
+    start: str | None = Query(None, description="ISO8601 start time"),
+    end: str | None = Query(None, description="ISO8601 end time"),
 ):
     """
     Retrieves log lines filtered by time range.
