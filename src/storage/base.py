@@ -8,9 +8,12 @@ the base
 from abc import ABC, abstractmethod
 
 
+# NOTE-s
+# - It *will* need to be expanded to store other types of values as well. In due time. In due time
+# - There's no validation done at the storage level
+# - There's no privilege separation taking place
+# - Functionalities will be implemented as needed for this (bottom-up approach)
 class StorageBase(ABC):
-    # TODO:
-    # - [] Implement just enough functions (store, retrieve) for the first round
     @abstractmethod
     def __init__(self, *, store_connection_data: dict[str, str] = {}):
         """Constructor for the Storage Interface object
