@@ -1,0 +1,73 @@
+# Pre-commit configuration: LINT (read-only, no file modifications)
+# Usage: pre-commit run --config .pre-commit-config-lint.yaml [--all-files]
+#
+# Suitable for CI pipelines -- reports issues without modifying files.
+# JS/TS hooks require eslint to be installed in the project (npm/yarn).
+# mypy runs in an isolated venv; add third-party stubs via additional_dependencies
+# if you get false positives on import resolution.
+
+repos:
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-yaml
+      - id: check-json
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+      - id: check-ast
+      - id: debug-statements
+
+  # ---- Python ----
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.7
+    hooks:
+      - id: ruff
+        name: ruff lint (check)
+        args:
+          - --line-length=120
+          - --select=E,W,F,I,UP,ANN,B
+          - --target-version=py312
+      - id: ruff-format
+        name: ruff format (check)
+        args:
+          - --check
+          - --diff
+          - --line-length=120
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.19.1
+    hooks:
+      - id: mypy
+        args:
+          - --strict
+          - --ignore-missing-imports
+        # add typed stubs your project needs, e.g.:
+        # additional_dependencies: [types-requests, types-pyyaml]
+
+  # ---- Shell ----
+
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.11.0.1
+    hooks:
+      - id: shellcheck
+
+  - repo: https://github.com/scop/pre-commit-shfmt
+    rev: v3.13.0-1
+    hooks:
+      - id: shfmt
+        name: shfmt (check)
+        args: [-d, -i, "2", -ci]
+
+  # ---- JavaScript / TypeScript ----
+
+  - repo: local
+    hooks:
+      - id: eslint-check
+        name: eslint (check)
+        language: system
+        entry: npx eslint --max-warnings=0
+        files: \.(js|jsx|ts|tsx)$
+        pass_filenames: true

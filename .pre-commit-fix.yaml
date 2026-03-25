@@ -1,0 +1,63 @@
+# Pre-commit configuration: FIX (auto-fix, modifies files in-place)
+# Usage: pre-commit run --config .pre-commit-config-fix.yaml [--all-files]
+#
+# Intended for local development -- hooks auto-fix what they can.
+# JS/TS hooks require eslint and prettier installed in the project (npm/yarn).
+
+repos:
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+      - id: check-ast
+      - id: debug-statements
+
+  # ---- Python ----
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.7
+    hooks:
+      - id: ruff
+        name: ruff lint (fix)
+        args:
+          - --fix
+          - --line-length=120
+          - --select=E,W,F,I,UP,ANN,B
+          - --target-version=py312
+      - id: ruff-format
+        name: ruff format (fix)
+        args:
+          - --line-length=120
+
+  # ---- Shell ----
+
+  - repo: https://github.com/scop/pre-commit-shfmt
+    rev: v3.13.0-1
+    hooks:
+      - id: shfmt
+        name: shfmt (fix)
+        args: [-w, -i, "2", -ci]
+
+  # ---- JavaScript / TypeScript ----
+
+  - repo: local
+    hooks:
+      - id: eslint-fix
+        name: eslint (fix)
+        language: system
+        entry: npx eslint --fix --max-warnings=0
+        files: \.(js|jsx|ts|tsx)$
+        pass_filenames: true
+      - id: prettier-fix
+        name: prettier (fix)
+        language: system
+        entry: npx prettier --write
+        files: \.(js|jsx|ts|tsx|json|yaml|yml|css|scss)$
+        pass_filenames: true
