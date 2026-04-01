@@ -15,10 +15,11 @@ LOG_TRACKER_URL = os.environ.get("LOG_TRACKER_URL", "http://localhost:8001")
 
 from src.storage.sqlite_handler import SQLiteHandler
 
-# TODO define one sqlite handler fixture for *each* database that will be used in testing
+
 @pytest.fixture(scope="class")
-def sqlitehandler():
-    sq = SQLiteHandler(store_connection_data = {})
+def sqlitehandler(tmp_path_factory):
+    """Yield an in-memory SQLiteHandler scoped to the test class."""
+    db_path = str(tmp_path_factory.mktemp("data") / "test.db")
+    sq = SQLiteHandler(store_connection_data={"db_path": db_path})
     yield sq
     sq.close()
-
