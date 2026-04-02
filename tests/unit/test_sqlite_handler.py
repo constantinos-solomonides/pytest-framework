@@ -11,14 +11,12 @@ Ensures that the basic functionalities can be done with the database:
 Used for TDD (Test Driven Development), remains as UT (Unit Tests)
 """
 
-import pytest
-
 from src.storage.sqlite_handler import SQLiteHandler
-
 
 # ======================================================================
 # Connection, singleton, and environment-based configuration
 # ======================================================================
+
 
 class TestSQLiteHandlerConnection:
     """Verify connection lifecycle, singleton enforcement, and env config."""
@@ -93,14 +91,13 @@ class TestSQLiteHandlerConnection:
 # Table management
 # ======================================================================
 
+
 class TestSQLiteHandlerTableOperations:
     """Verify table creation, dropping, and error paths."""
 
     def test_initialise_table_creates_table(self, sqlitehandler):
         """A table is created and can be queried."""
-        ok, msg = sqlitehandler.initialise_table(
-            "t_create", {"id": "INTEGER PRIMARY KEY", "name": "TEXT"}
-        )
+        ok, msg = sqlitehandler.initialise_table("t_create", {"id": "INTEGER PRIMARY KEY", "name": "TEXT"})
         assert ok, msg
         ok, rows = sqlitehandler.retrieve("t_create")
         assert ok
@@ -154,6 +151,7 @@ class TestSQLiteHandlerTableOperations:
 # ======================================================================
 # Insert
 # ======================================================================
+
 
 class TestSQLiteHandlerInsert:
     """Verify single-row and batch inserts."""
@@ -232,6 +230,7 @@ class TestSQLiteHandlerInsert:
 # Retrieve
 # ======================================================================
 
+
 class TestSQLiteHandlerRetrieve:
     """Verify retrieval with and without filters."""
 
@@ -254,9 +253,7 @@ class TestSQLiteHandlerRetrieve:
 
     def test_retrieve_with_multiple_conditions(self, sqlitehandler):
         """Multiple conditions are ANDed together."""
-        sqlitehandler.initialise_table(
-            "t_ret_mc", {"id": "INTEGER", "a": "TEXT", "b": "TEXT"}
-        )
+        sqlitehandler.initialise_table("t_ret_mc", {"id": "INTEGER", "a": "TEXT", "b": "TEXT"})
         sqlitehandler.insert(
             "t_ret_mc",
             [
@@ -280,9 +277,7 @@ class TestSQLiteHandlerRetrieve:
 
     def test_retrieve_returns_dicts(self, sqlitehandler):
         """Each returned row is a plain dict with column-name keys."""
-        sqlitehandler.initialise_table(
-            "t_ret_dict", {"id": "INTEGER", "name": "TEXT"}
-        )
+        sqlitehandler.initialise_table("t_ret_dict", {"id": "INTEGER", "name": "TEXT"})
         sqlitehandler.insert("t_ret_dict", {"id": 1, "name": "Alice"})
         ok, rows = sqlitehandler.retrieve("t_ret_dict")
         assert ok
@@ -300,6 +295,7 @@ class TestSQLiteHandlerRetrieve:
 # ======================================================================
 # Update
 # ======================================================================
+
 
 class TestSQLiteHandlerUpdate:
     """Verify row updates."""
@@ -320,13 +316,9 @@ class TestSQLiteHandlerUpdate:
 
     def test_update_multiple_columns(self, sqlitehandler):
         """Several columns can be updated in one call."""
-        sqlitehandler.initialise_table(
-            "t_upd_mc", {"id": "INTEGER", "a": "TEXT", "b": "TEXT"}
-        )
+        sqlitehandler.initialise_table("t_upd_mc", {"id": "INTEGER", "a": "TEXT", "b": "TEXT"})
         sqlitehandler.insert("t_upd_mc", {"id": 1, "a": "old_a", "b": "old_b"})
-        ok, msg = sqlitehandler.update(
-            "t_upd_mc", {"a": "new_a", "b": "new_b"}, {"id": 1}
-        )
+        ok, msg = sqlitehandler.update("t_upd_mc", {"a": "new_a", "b": "new_b"}, {"id": 1})
         assert ok, msg
         ok, rows = sqlitehandler.retrieve("t_upd_mc", conditions={"id": 1})
         assert ok and rows[0]["a"] == "new_a" and rows[0]["b"] == "new_b"
@@ -359,6 +351,7 @@ class TestSQLiteHandlerUpdate:
 # ======================================================================
 # Operations after close
 # ======================================================================
+
 
 class TestSQLiteHandlerPostClose:
     """Verify graceful failure once the connection has been closed."""
