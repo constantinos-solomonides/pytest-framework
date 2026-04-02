@@ -8,9 +8,9 @@ Ensures that the basic functionalities can be done with the database:
     * Update values
     * Drop table
 
-Tests to add:
-    * [] Validate that rows that are primary keys respect the limitation
-    * [] Validate that not-null can be given and respected
+Tests added:
+    * Rows that are primary keys respect the limitation of unique entries
+    * Validate that not-null can be given and enforced
 
 Used for TDD (Test Driven Development), remains as UT (Unit Tests)
 """
@@ -210,6 +210,15 @@ class TestSQLiteHandlerInsert:
         assert ok and rows[0]["opt"] is None
         sqlitehandler.drop_table("t_ins_null")
 
+    def test_insert_rejects_null_values_if_not_null_given(self, sqlitehandler):
+        """None values are stored as SQL NULL."""
+        sqlitehandler.initialise_table("t_ins_not_null", {"id": "INTEGER", "opt": "TEXT NOT NULL"})
+        ok, msg = sqlitehandler.insert("t_ins_not_null", {"id": 1, "opt": None})
+        assert not ok, msg
+        ok, rows = sqlitehandler.retrieve("t_ins_not_null")
+        assert ok and len(rows) == 0
+        sqlitehandler.drop_table("t_ins_not_null")
+
     def test_insert_rejects_empty_dict(self, sqlitehandler):
         """Empty data dict is refused."""
         sqlitehandler.initialise_table("t_ins_ed", {"id": "INTEGER"})
@@ -228,6 +237,19 @@ class TestSQLiteHandlerInsert:
         """Inserting into a missing table returns a failure tuple."""
         ok, _ = sqlitehandler.insert("no_such_table", {"id": 1})
         assert not ok
+
+    def test_primary_key_rejects_duplicates(self, sqlitehandler):
+        """Inserting the same primary key twice fails"""
+        ok, msg = sqlitehandler.initialise_table("t_primary_keys", {"id": "INTEGER PRIMARY KEY", "name": "TEXT"})
+        assert ok, msg
+        ok, _ = sqlitehandler.insert("t_primary_keys", {"id": 1, "name": "First"})
+        assert ok
+        ok, _ = sqlitehandler.insert("t_primary_keys", {"id": 1, "name": "Second"})
+        assert not ok
+        ok, rows = sqlitehandler.retrieve("t_primary_keys")
+        assert ok and len(rows) == 1
+
+        sqlitehandler.drop_table("t_create")
 
 
 # ======================================================================
