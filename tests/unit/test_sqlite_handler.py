@@ -8,6 +8,10 @@ Ensures that the basic functionalities can be done with the database:
     * Update values
     * Drop table
 
+Tests to add:
+    * [] Validate that rows that are primary keys respect the limitation
+    * [] Validate that not-null can be given and respected
+
 Used for TDD (Test Driven Development), remains as UT (Unit Tests)
 """
 
@@ -330,7 +334,7 @@ class TestSQLiteHandlerUpdate:
         sqlitehandler.insert("t_upd0", {"id": 1, "v": "x"})
         ok, msg = sqlitehandler.update("t_upd0", {"v": "y"}, {"id": 999})
         assert ok
-        assert "0" in msg
+        assert " 0 " in msg
         sqlitehandler.drop_table("t_upd0")
 
     def test_update_rejects_empty_data(self, sqlitehandler):
