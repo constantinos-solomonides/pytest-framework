@@ -25,6 +25,14 @@ class SQLiteHandler(StorageBase):
     # ------------------------------------------------------------------
     # Construction helpers
     # ------------------------------------------------------------------
+    @classmethod
+    @property
+    def instances(cls) -> dict[str, "SQLiteHandler"]:
+        """Getter for the class attribute `_instances`
+
+        Prevents accessing hidden attribute directly
+        """
+        return cls._instances
 
     @staticmethod
     def _resolve_db_path(store_connection_data: dict[str, str]) -> str:
@@ -67,9 +75,7 @@ class SQLiteHandler(StorageBase):
         self._db_path: str = self._resolve_db_path(store_connection_data or {})
 
         try:
-            self._connection: sqlite3.Connection | None = sqlite3.connect(
-                self._db_path
-            )
+            self._connection: sqlite3.Connection | None = sqlite3.connect(self._db_path)
             self._connection.row_factory = sqlite3.Row
         except sqlite3.Error as exc:
             logger.error("Failed to connect to '%s': %s", self._db_path, exc)
@@ -94,13 +100,21 @@ class SQLiteHandler(StorageBase):
             return False, msg
         return True, "ok"
 
+    @property
+    def db_path(self):
+        """Getter for the self._db_path property, to avoid accessing hidden attributes directly"""
+        return self._db_path
+
+    @property
+    def connection(self):
+        """Getter for the self._connection property, to avoid accessing hidden attributes directly"""
+        return self._connection
+
     # ------------------------------------------------------------------
     # Table management
     # ------------------------------------------------------------------
 
-    def initialise_table(
-        self, table_name: str, schema: dict[str, str]
-    ) -> tuple[bool, str]:
+    def initialise_table(self, table_name: str, schema: dict[str, str]) -> tuple[bool, str]:
         """Create a table with the given schema if it does not already exist.
 
         table_name: Name of the table to create.
@@ -166,8 +180,7 @@ class SQLiteHandler(StorageBase):
     def insert(
         self,
         table_name: str,
-        data: dict[str, str | int | float | None]
-        | list[dict[str, str | int | float | None]],
+        data: dict[str, str | int | float | None] | list[dict[str, str | int | float | None]],
     ) -> tuple[bool, str]:
         """Insert one or more rows into a table.
 

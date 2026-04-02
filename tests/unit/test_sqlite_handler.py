@@ -27,8 +27,8 @@ class TestSQLiteHandlerConnection:
         """An explicit db_path produces a connected handler."""
         db = str(tmp_path / "explicit.db")
         handler = SQLiteHandler(store_connection_data={"db_path": db})
-        assert handler._connection is not None
-        assert handler._db_path == db
+        assert handler.connection is not None
+        assert handler.db_path == db
         handler.close()
 
     def test_singleton_returns_same_instance_for_same_path(self, tmp_path):
@@ -52,14 +52,14 @@ class TestSQLiteHandlerConnection:
         db = str(tmp_path / "env.db")
         monkeypatch.setenv("SQLITE_DB_PATH", db)
         handler = SQLiteHandler()
-        assert handler._db_path == db
+        assert handler.db_path == db
         handler.close()
 
     def test_defaults_to_memory_without_any_config(self, monkeypatch):
         """Uses :memory: when neither explicit path nor env var is set."""
         monkeypatch.delenv("SQLITE_DB_PATH", raising=False)
         handler = SQLiteHandler()
-        assert handler._db_path == ":memory:"
+        assert handler.db_path == ":memory:"
         handler.close()
 
     def test_close_deregisters_singleton(self, tmp_path):
@@ -67,7 +67,7 @@ class TestSQLiteHandlerConnection:
         db = str(tmp_path / "dereg.db")
         handler = SQLiteHandler(store_connection_data={"db_path": db})
         handler.close()
-        assert db not in SQLiteHandler._instances
+        assert db not in SQLiteHandler.instances
 
     def test_close_is_idempotent(self, tmp_path):
         """Calling close() twice does not raise or return failure."""
@@ -84,8 +84,8 @@ class TestSQLiteHandlerConnection:
         h1 = SQLiteHandler(store_connection_data={"db_path": db})
         h1.close()
         h2 = SQLiteHandler(store_connection_data={"db_path": db})
-        assert h2._connection is not None
-        assert h2 is not h1 or h2._connection is not None
+        assert h2.connection is not None
+        assert h2 is not h1 or h2.connection is not None
         h2.close()
 
 

@@ -29,9 +29,7 @@ class StorageBase(ABC):
         pass
 
     @abstractmethod
-    def initialise_table(
-        self, table_name: str, schema: dict[str, str]
-    ) -> tuple[bool, str]:
+    def initialise_table(self, table_name: str, schema: dict[str, str]) -> tuple[bool, str]:
         """Create a table (or equivalent collection) with the given schema.
 
         table_name: Name of the table to create.
@@ -46,8 +44,7 @@ class StorageBase(ABC):
     def insert(
         self,
         table_name: str,
-        data: dict[str, str | int | float | None]
-        | list[dict[str, str | int | float | None]],
+        data: dict[str, str | int | float | None] | list[dict[str, str | int | float | None]],
     ) -> tuple[bool, str]:
         """Insert one or more rows into a table.
 
